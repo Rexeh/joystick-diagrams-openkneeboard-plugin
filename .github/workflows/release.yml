@@ -39,15 +39,15 @@ jobs:
           # plugin_signing lives in the host package; install it without its heavy GUI deps.
           pip install cryptography
           pip install --no-deps "git+https://github.com/Rexeh/joystick-diagrams@master"
-          # PLUGIN_SIGNING_KEY must be the BASE64-encoded PEM private key. Base64 avoids the
-          # newline/CRLF mangling that corrupts a raw multi-line PEM stored as an Actions secret
-          # (symptom: "Unable to load PEM file ... MalformedFraming"). Produce it with:
-          #   PowerShell: [Convert]::ToBase64String([IO.File]::ReadAllBytes("private.key"))
-          #   bash:       base64 -w0 private.key
-          if ! printf '%s' "$PLUGIN_SIGNING_KEY" | base64 -d > private.key 2>/dev/null; then
-            echo "::error::PLUGIN_SIGNING_KEY is not valid base64 (store the base64 of your PEM key)."
-            exit 1
-          fi
+          # PLUGIN_SIGNING_KEY holds the base64 BODY of the Ed25519 PKCS8 private key — the single
+          # line between the PEM -----BEGIN/END----- markers (base64 of the DER). A multi-line PEM
+          # stored in an Actions secret loses its newlines ("MalformedFraming"), so rebuild the PEM:
+          {
+            echo "-----BEGIN PRIVATE KEY-----"
+            printf '%s
+' "$(printf '%s' "$PLUGIN_SIGNING_KEY" | tr -d '[:space:]' | fold -w 64)"
+            echo "-----END PRIVATE KEY-----"
+          } > private.key
           python scripts/sign_plugin.py sign --plugin "$PLUGIN_DIR" --key private.key
           rm -f private.key
           test -f "$PLUGIN_DIR/plugin.sig"
