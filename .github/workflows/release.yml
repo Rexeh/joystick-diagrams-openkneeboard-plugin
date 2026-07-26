@@ -39,13 +39,12 @@ jobs:
           # plugin_signing lives in the host package; install it without its heavy GUI deps.
           pip install cryptography
           pip install --no-deps "git+https://github.com/Rexeh/joystick-diagrams@master"
-          # PLUGIN_SIGNING_KEY holds the base64 BODY of the Ed25519 PKCS8 private key — the single
-          # line between the PEM -----BEGIN/END----- markers (base64 of the DER). A multi-line PEM
-          # stored in an Actions secret loses its newlines ("MalformedFraming"), so rebuild the PEM:
+          # PLUGIN_SIGNING_KEY holds the base64 BODY of the Ed25519 PKCS8 key (the line between the
+          # PEM BEGIN/END markers). A multi-line PEM stored in an Actions secret loses its newlines
+          # ("MalformedFraming"), so rebuild a well-formed PEM around the body here:
           {
             echo "-----BEGIN PRIVATE KEY-----"
-            printf '%s
-' "$(printf '%s' "$PLUGIN_SIGNING_KEY" | tr -d '[:space:]' | fold -w 64)"
+            echo "$(printf '%s' "$PLUGIN_SIGNING_KEY" | tr -d '[:space:]' | fold -w 64)"
             echo "-----END PRIVATE KEY-----"
           } > private.key
           python scripts/sign_plugin.py sign --plugin "$PLUGIN_DIR" --key private.key
