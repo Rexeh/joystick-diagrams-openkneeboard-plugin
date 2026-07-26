@@ -1,0 +1,33 @@
+name: Lint & Test
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install system libraries for the host (PySide6) SDK
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libxkbcommon0 libgl1
+
+      - name: Install host (Joystick Diagrams SDK the plugin imports)
+        run: |
+          python -m pip install --upgrade pip
+          pip install "joystick-diagrams @ git+https://github.com/Rexeh/joystick-diagrams@master"
+
+      - name: Install plugin + dev dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Ruff
+        run: ruff check .
+
+      - name: Pytest
+        run: pytest

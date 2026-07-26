@@ -1,0 +1,81 @@
+name: Release plugin
+
+# Tag a release as vX.Y.Z (matching plugin_meta.version in main.py) to publish the ZIP.
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+env:
+  PLUGIN_DIR: openkneeboard
+  ZIP_NAME: openkneeboard.zip
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # Sign only when the developer private key is configured as a secret.
+      # Without it, an UNSIGNED zip ships (installs with a trust prompt in the app).
+      - name: Sign plugin
+        id: sign
+        env:
+          PLUGIN_SIGNING_KEY: ${{ secrets.PLUGIN_SIGNING_KEY }}
+        run: |
+          if [ -z "$PLUGIN_SIGNING_KEY" ]; then
+            echo "No PLUGIN_SIGNING_KEY secret set — shipping UNSIGNED."
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # plugin_signing lives in the host package; install it without its heavy GUI deps.
+          pip install cryptography
+          pip install --no-deps "git+https://github.com/Rexeh/joystick-diagrams@master"
+          printf '%s' "$PLUGIN_SIGNING_KEY" > private.key
+          python scripts/sign_plugin.py sign --plugin "$PLUGIN_DIR" --key private.key
+          rm -f private.key
+          test -f "$PLUGIN_DIR/plugin.sig"
+          echo "signed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Build ZIP (single top-level folder, as the installer requires)
+        run: |
+          # Exclude runtime/dev artifacts; keep plugin.sig if signing produced it.
+          zip -r "$ZIP_NAME" "$PLUGIN_DIR" \
+            -x "*/__pycache__/*" "*/parser.out" "*/data.json"
+          echo "Contents:"
+          unzip -l "$ZIP_NAME"
+
+      - name: Compute SHA-256 (put this into the catalog manifest)
+        run: |
+          SHA=$(sha256sum "$ZIP_NAME" | cut -d' ' -f1)
+          echo "sha256=$SHA" >> "$GITHUB_ENV"
+          {
+            echo "### $ZIP_NAME"
+            echo "- signed: ${{ steps.sign.outputs.signed }}"
+            echo "- sha256: \`$SHA\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish release (create if missing, otherwise attach the asset)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          NOTES="OpenKneeboard plugin ${GITHUB_REF_NAME}. signed=${{ steps.sign.outputs.signed }}. sha256=${{ env.sha256 }}"
+          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            # Release already exists (e.g. published from the GitHub UI, which also created the
+            # tag that triggered this run). Attach/replace the built asset and refresh the notes.
+            echo "Release ${GITHUB_REF_NAME} exists — uploading asset."
+            gh release upload "${GITHUB_REF_NAME}" "$ZIP_NAME" --clobber
+            gh release edit "${GITHUB_REF_NAME}" --notes "$NOTES"
+          else
+            gh release create "${GITHUB_REF_NAME}" "$ZIP_NAME" \
+              --title "${GITHUB_REF_NAME}" \
+              --notes "$NOTES"
+          fi

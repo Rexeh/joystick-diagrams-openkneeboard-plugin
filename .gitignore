@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+
+# PLY / plugin runtime artifacts (must never be committed or shipped)
+parser.out
+data.json
+
+# Signing keys — NEVER commit a private key
+keys/
+*.key
+private.key
+
+# Test / tooling
+.pytest_cache/
+.coverage
+coverage.xml
+.ruff_cache/
+
+# Editors / OS
+.idea/
+.vscode/
+.DS_Store

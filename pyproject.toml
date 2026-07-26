@@ -1,0 +1,81 @@
+[project]
+name = "joystick-diagrams-openkneeboard-plugin"
+version = "1.0.0"
+description = "OpenKneeboard output plugin for Joystick Diagrams"
+readme = "README.md"
+requires-python = ">=3.11, <3.13"
+authors = [{ name = "Robert Cox" }]
+
+# This plugin imports no third-party runtime packages beyond the host SDK — the host
+# provides everything it needs at runtime.
+dependencies = []
+
+[project.urls]
+Homepage = "https://www.joystick-diagrams.com"
+Repository = "https://github.com/Rexeh/joystick-diagrams-openkneeboard-plugin"
+Host = "https://github.com/Rexeh/joystick-diagrams"
+
+[project.optional-dependencies]
+# Dev/test tooling. The host package (which provides the `joystick_diagrams` SDK the plugin
+# imports) is installed separately — see README / the CI workflow — because a git direct
+# reference here would require tool.hatch.metadata.allow-direct-references and couples the
+# package metadata to a moving branch ref.
+dev = [
+    "pytest>=7.2.0,<8",
+    "pytest-cov>=4.0.0,<5",
+    "ruff>=0.15.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["openkneeboard"]
+
+[tool.pytest.ini_options]
+# Tests import the plugin as a top-level package and read fixtures relative to the repo root.
+pythonpath = ["."]
+testpaths = ["tests"]
+
+# Mirrors the host repo's ruff config so the moved source lints identically. The one addition is
+# isort known-first-party: in the host, `joystick_diagrams` is the project package (first-party);
+# here it is a pip-installed dependency, so it must be declared first-party to keep import order.
+[tool.ruff]
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["A", "E", "C90", "I", "W", "F", "B", "Q", "N", "PL"]
+
+ignore = [
+    "E501",
+    "W191",
+    "E111",
+    "E114",
+    "E117",
+    "D206",
+    "D300",
+    "Q000",
+    "Q001",
+    "Q002",
+    "Q003",
+    "COM812",
+    "COM819",
+    "ISC001",
+    "ISC002",
+    "PLR2004",
+    "PLC0415",
+]
+
+unfixable = ["B"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["joystick_diagrams", "openkneeboard"]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["E402"]
+"**/tests/*" = ["E402", "PLR2004"]
+
+[tool.ruff.format]
+quote-style = "double"
+docstring-code-format = true
